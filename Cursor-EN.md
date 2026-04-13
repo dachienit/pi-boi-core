@@ -52,22 +52,15 @@
 ```mermaid
 flowchart TD
     A[User Input] --> B[Router - LLM Farm FREE]
-    B --> C1[Assistant - DIA Brain]
-    B --> C2[MCP - LLM Farm]
-    B --> C3[Analysis - DIA Brain]
-    B --> C4[Refactor - DIA Brain]
-    B --> C5[Review - DIA Brain]
-    B --> C6[FixIssue - DIA Brain]
-    B --> C7[GenerateABAPCode - DIA Brain]
-
-    C1 --> D[Response to User]
-    C2 --> D
-    C3 --> D
-    C4 --> D
-    C5 --> D
-    C6 --> D
-    C7 --> D
+    B --> C[Skill Pipeline]
+    C --> D[Response to User]
 ```
+
+- Skill Pipeline means skills can be chained in sequence.
+- Current skills in the pipeline: `Assistant`, `MCP`, `Analysis`, `Refactor`, `Review`, `FixIssue`, `GenerateABAPCode`.
+- Default skill: if the Router cannot clearly match intent, fallback to `Assistant`.
+- The output of one skill becomes the input to the next skill.
+- Example chain: `MCP -> Analysis -> Refactor -> Review -> Response`.
 
 ### Router Output Mapping (Easy Read)
 

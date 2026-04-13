@@ -52,22 +52,15 @@
 ```mermaid
 flowchart TD
     A[User Input] --> B[Router - LLM Farm FREE]
-    B --> C1[Assistant - DIA Brain]
-    B --> C2[MCP - LLM Farm]
-    B --> C3[Analysis - DIA Brain]
-    B --> C4[Refactor - DIA Brain]
-    B --> C5[Review - DIA Brain]
-    B --> C6[FixIssue - DIA Brain]
-    B --> C7[GenerateABAPCode - DIA Brain]
-
-    C1 --> D[Response tra ve User]
-    C2 --> D
-    C3 --> D
-    C4 --> D
-    C5 --> D
-    C6 --> D
-    C7 --> D
+    B --> C[Skill Pipeline]
+    C --> D[Response tra ve User]
 ```
+
+- Skill Pipeline = chuoi skills co the goi lien tiep nhau.
+- Skills hien co trong pipeline: `Assistant`, `MCP`, `Analysis`, `Refactor`, `Review`, `FixIssue`, `GenerateABAPCode`.
+- Skill mac dinh: neu Router khong match ro intent thi chuyen ve `Assistant`.
+- Output cua skill truoc la input cua skill sau.
+- Vi du chain: `MCP -> Analysis -> Refactor -> Review -> Response`.
 
 ### Mapping đầu ra Router (Dễ đọc)
 
