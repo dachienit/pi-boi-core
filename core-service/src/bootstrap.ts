@@ -23,7 +23,10 @@ if (!prox) {
 	]) {
 		delete process.env[key];
 	}
-	console.log("[bootstrap] Cleared system proxy env vars (PROX not set)");
+	// Tell EnvHttpProxyAgent to bypass proxy for everything
+	process.env.NO_PROXY = "*";
+	process.env.no_proxy = "*";
+	console.log("[bootstrap] Cleared system proxy env vars, set NO_PROXY=* (PROX not set)");
 } else {
 	console.log(`[bootstrap] PROX detected (${prox}), keeping proxy env vars`);
 }

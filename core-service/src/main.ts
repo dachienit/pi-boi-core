@@ -33,7 +33,11 @@ if (process.env.LLM_API_VERSION) {
 			input = typeof input === "string" ? url : new URL(url);
 		}
 
-		return originalFetch(input, init);
+		console.log(`[fetch-debug] → ${url}`);
+		return originalFetch(input, init).catch((err: unknown) => {
+			console.error(`[fetch-debug] FAILED for ${url}:`, err);
+			throw err;
+		});
 	};
 	console.log(`✓ LLM API version: ${apiVersion}`);
 }
