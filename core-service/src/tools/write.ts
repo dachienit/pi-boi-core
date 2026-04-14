@@ -1,5 +1,7 @@
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { Type } from "@sinclair/typebox";
+import { mkdir, writeFile } from "fs/promises";
+import { dirname, isAbsolute, resolve } from "path";
 import type { Executor } from "../sandbox.js";
 
 const writeSchema = Type.Object({
@@ -17,29 +19,25 @@ export function createWriteTool(executor: Executor): AgentTool<typeof writeSchem
 		parameters: writeSchema,
 		execute: async (
 			_toolCallId: string,
-			{ path, content }: { label: string; path: string; content: string },
-			signal?: AbortSignal,
+			{ path: filePath, content }: { label: string; path: string; content: string },
+			_signal?: AbortSignal,
 		) => {
-			// Create parent directories and write file using heredoc
-			const dir = path.includes("/") ? path.substring(0, path.lastIndexOf("/")) : ".";
+			// Use Node.js fs APIs for cross-platform compatibility (Windows + Linux)
+			const resolvedPath = isAbsolute(filePath) ? filePath : resolve(process.cwd(), filePath);
+			const dir = dirname(resolvedPath);
 
-			// Use printf to handle content with special characters, pipe to file
-			// This avoids issues with heredoc and special characters
-			const cmd = `mkdir -p ${shellEscape(dir)} && printf '%s' ${shellEscape(content)} > ${shellEscape(path)}`;
+			try {
+				await mkdir(dir, { recursive: true });
+				await writeFile(resolvedPath, content, "utf-8");
 
-			const result = await executor.exec(cmd, { signal });
-			if (result.code !== 0) {
-				throw new Error(result.stderr || `Failed to write file: ${path}`);
+				return {
+					content: [{ type: "text", text: `Successfully wrote ${content.length} bytes to ${filePath}` }],
+					details: undefined,
+				};
+			} catch (err) {
+				const message = err instanceof Error ? err.message : String(err);
+				throw new Error(`Failed to write file: ${filePath} - ${message}`);
 			}
-
-			return {
-				content: [{ type: "text", text: `Successfully wrote ${content.length} bytes to ${path}` }],
-				details: undefined,
-			};
 		},
 	};
-}
-
-function shellEscape(s: string): string {
-	return `'${s.replace(/'/g, "'\\''")}'`;
 }

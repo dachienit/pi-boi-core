@@ -1,6 +1,8 @@
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { Type } from "@sinclair/typebox";
 import * as Diff from "diff";
+import { readFile, writeFile } from "fs/promises";
+import { isAbsolute, resolve } from "path";
 import type { Executor } from "../sandbox.js";
 
 /**
@@ -93,7 +95,7 @@ const editSchema = Type.Object({
 	newText: Type.String({ description: "New text to replace the old text with" }),
 });
 
-export function createEditTool(executor: Executor): AgentTool<typeof editSchema> {
+export function createEditTool(_executor: Executor): AgentTool<typeof editSchema> {
 	return {
 		name: "edit",
 		label: "edit",
@@ -102,64 +104,67 @@ export function createEditTool(executor: Executor): AgentTool<typeof editSchema>
 		parameters: editSchema,
 		execute: async (
 			_toolCallId: string,
-			{ path, oldText, newText }: { label: string; path: string; oldText: string; newText: string },
-			signal?: AbortSignal,
+			{ path: filePath, oldText, newText }: { label: string; path: string; oldText: string; newText: string },
+			_signal?: AbortSignal,
 		) => {
-			// Read the file
-			const readResult = await executor.exec(`cat ${shellEscape(path)}`, { signal });
-			if (readResult.code !== 0) {
-				throw new Error(readResult.stderr || `File not found: ${path}`);
+			// Use Node.js fs APIs for cross-platform compatibility (Windows + Linux)
+			const resolvedPath = isAbsolute(filePath) ? filePath : resolve(process.cwd(), filePath);
+
+			try {
+				// Read the file
+				const content = await readFile(resolvedPath, "utf-8");
+
+				// Check if old text exists
+				if (!content.includes(oldText)) {
+					throw new Error(
+						`Could not find the exact text in ${filePath}. The old text must match exactly including all whitespace and newlines.`,
+					);
+				}
+
+				// Count occurrences
+				const occurrences = content.split(oldText).length - 1;
+
+				if (occurrences > 1) {
+					throw new Error(
+						`Found ${occurrences} occurrences of the text in ${filePath}. The text must be unique. Please provide more context to make it unique.`,
+					);
+				}
+
+				// Perform replacement
+				const index = content.indexOf(oldText);
+				const newContent = content.substring(0, index) + newText + content.substring(index + oldText.length);
+
+				if (content === newContent) {
+					throw new Error(
+						`No changes made to ${filePath}. The replacement produced identical content. This might indicate an issue with special characters or the text not existing as expected.`,
+					);
+				}
+
+				// Write the file back
+				await writeFile(resolvedPath, newContent, "utf-8");
+
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Successfully replaced text in ${filePath}. Changed ${oldText.length} characters to ${newText.length} characters.`,
+						},
+					],
+					details: { diff: generateDiffString(content, newContent) },
+				};
+			} catch (err) {
+				if (err instanceof Error && err.message.includes("Could not find")) {
+					throw err;
+				}
+				if (err instanceof Error && err.message.includes("occurrences")) {
+					throw err;
+				}
+				if (err instanceof Error && err.message.includes("No changes made")) {
+					throw err;
+				}
+				const message = err instanceof Error ? err.message : String(err);
+				throw new Error(`Failed to edit file: ${filePath} - ${message}`);
 			}
-
-			const content = readResult.stdout;
-
-			// Check if old text exists
-			if (!content.includes(oldText)) {
-				throw new Error(
-					`Could not find the exact text in ${path}. The old text must match exactly including all whitespace and newlines.`,
-				);
-			}
-
-			// Count occurrences
-			const occurrences = content.split(oldText).length - 1;
-
-			if (occurrences > 1) {
-				throw new Error(
-					`Found ${occurrences} occurrences of the text in ${path}. The text must be unique. Please provide more context to make it unique.`,
-				);
-			}
-
-			// Perform replacement
-			const index = content.indexOf(oldText);
-			const newContent = content.substring(0, index) + newText + content.substring(index + oldText.length);
-
-			if (content === newContent) {
-				throw new Error(
-					`No changes made to ${path}. The replacement produced identical content. This might indicate an issue with special characters or the text not existing as expected.`,
-				);
-			}
-
-			// Write the file back
-			const writeResult = await executor.exec(`printf '%s' ${shellEscape(newContent)} > ${shellEscape(path)}`, {
-				signal,
-			});
-			if (writeResult.code !== 0) {
-				throw new Error(writeResult.stderr || `Failed to write file: ${path}`);
-			}
-
-			return {
-				content: [
-					{
-						type: "text",
-						text: `Successfully replaced text in ${path}. Changed ${oldText.length} characters to ${newText.length} characters.`,
-					},
-				],
-				details: { diff: generateDiffString(content, newContent) },
-			};
 		},
 	};
-}
-
-function shellEscape(s: string): string {
-	return `'${s.replace(/'/g, "'\\''")}'`;
 }
