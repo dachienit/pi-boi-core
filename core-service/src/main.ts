@@ -2,9 +2,18 @@
 
 import "dotenv/config";
 
+// Clear standard proxy env vars when PROX is not set (e.g. SAP BAS/BTP),
+// so pi-ai's EnvHttpProxyAgent doesn't pick up system-level proxy settings.
+if (!process.env.PROX) {
+	delete process.env.HTTP_PROXY;
+	delete process.env.HTTPS_PROXY;
+	delete process.env.http_proxy;
+	delete process.env.https_proxy;
+}
+
 // Setup global proxy for LLM calls (must be before any fetch)
 import { setGlobalDispatcher, ProxyAgent } from "undici";
- if (process.env.PROX) {
+if (process.env.PROX) {
 	const proxyUri = new URL(process.env.PROX).toString();
 	const token = process.env.AGENT_USER
 		? `Basic ${Buffer.from(`${process.env.AGENT_USER}:${process.env.AGENT_PWD || ""}`).toString("base64")}`
