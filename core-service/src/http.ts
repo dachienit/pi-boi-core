@@ -279,8 +279,12 @@ export class HttpServer {
 
 		// Get relative path and convert to forward slashes for URL
 		const relativePath = normalizedFilePath.slice(artifactsDir.length).replace(/^[/\\]/, "").replace(/\\/g, "/");
-		let url = `http://localhost:${this.port}/artifacts/${relativePath}`;
+		
+		// Use relative URL by default - browser/proxy will handle the correct base URL
+		// This works for both localhost and SAP BAS/cloud environments
+		let url = `/artifacts/${relativePath}`;
 
+		// Override with explicit tunnel URL if configured (for special cases like ngrok)
 		const tunnelUrlFile = "/tmp/artifacts-url.txt";
 		if (existsSync(tunnelUrlFile)) {
 			try {
@@ -288,7 +292,7 @@ export class HttpServer {
 				if (tunnelUrl && !tunnelUrl.includes("localhost") && !tunnelUrl.includes("127.0.0.1")) {
 					url = `${tunnelUrl}/artifacts/${relativePath}`;
 				}
-			} catch { /* use local fallback */ }
+			} catch { /* use relative URL fallback */ }
 		}
 
 		res.json({ url });
